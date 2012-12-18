@@ -43,7 +43,6 @@ module Sunspot
         self
       end
 
-
       def execute! #:nodoc: deprecated
         execute
       end
