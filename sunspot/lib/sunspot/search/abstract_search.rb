@@ -32,6 +32,7 @@ module Sunspot
       # Sunspot#new_search(), you will need to call this method after building the
       # query.
       #
+      # NOTE This is where we have changed things to default back to GET requests for requests under 2K in size
       def execute
         reset
         params = @query.to_params
