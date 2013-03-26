@@ -42,15 +42,19 @@ module Sunspot
       def execute
         reset
         params = @query.to_params
-        @solr_result = @connection.post "#{request_handler}", :data => params
+        if params.to_query.length > 2048
+          @solr_result = @connection.post "#{request_handler}", :data => params
+        else
+          @solr_result = @connection.get "#{request_handler}", :params => params
+        end
         self
       end
 
       def execute! #:nodoc: deprecated
         execute
       end
-  
-      # 
+
+      #
       # Get the collection of results as instantiated objects. If WillPaginate is
       # available, the results will be a WillPaginate::Collection instance; if
       # not, it will be a vanilla Array.

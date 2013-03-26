@@ -1,5 +1,13 @@
 # Sunspot
 
+See http://sunspot.github.com/
+
+Fork to add support for making GET requests so they are cacheable by e.g Varnish
+
+Based off the 2.0.0 tag
+
+# Original README
+
 [![Build Status](https://secure.travis-ci.org/sunspot/sunspot.png)](http://travis-ci.org/sunspot/sunspot)
 
 Sunspot is a Ruby library for expressive, powerful interaction with the Solr
