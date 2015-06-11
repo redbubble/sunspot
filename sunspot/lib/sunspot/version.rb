@@ -1,3 +1,3 @@
 module Sunspot
-  VERSION = '2.0.0.redbubbleV1'
+  VERSION = '2.0.0.redbubbleV2'
 end
