@@ -6,6 +6,8 @@ Fork to add support for making GET requests so they are cacheable by e.g Varnish
 
 Based off the 2.0.0 tag
 
+Updated embedded SOLR to version 4.10.4
+
 # Original README
 
 [![Build Status](https://secure.travis-ci.org/sunspot/sunspot.png)](http://travis-ci.org/sunspot/sunspot)
