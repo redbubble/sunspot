@@ -81,6 +81,11 @@ module Sunspot
           "#{self.class.name} cannot be used as a Solr literal"
         )
       end
+
+      private
+      def without_control_chars(text)
+        text.to_s.gsub(/[[:cntrl:]]/,'') if text
+      end
     end
 
     # 
@@ -96,13 +101,12 @@ module Sunspot
       end
 
       def to_indexed(value) #:nodoc:
-        value.to_s if value
+        without_control_chars(value)
       end
 
       def cast(text)
         text
       end
-
       def accepts_dynamic?
         false
       end
@@ -121,7 +125,7 @@ module Sunspot
       end
 
       def to_indexed(value) #:nodoc:
-        value.to_s if value
+        without_control_chars(value)
       end
 
       def cast(string) #:nodoc:
@@ -411,3 +415,4 @@ module Sunspot
     register ClassType, Class
   end
 end
+
