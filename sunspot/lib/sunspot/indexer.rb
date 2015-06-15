@@ -8,7 +8,6 @@ module Sunspot
   # subclasses).
   #
   class Indexer #:nodoc:
-    include RSolr::Char
 
     def initialize(connection)
       @connection = connection
@@ -44,6 +43,7 @@ module Sunspot
     # Remove the model from the Solr index by specifying the class and ID
     #
     def remove_by_id(class_name, *ids)
+      ids.flatten!
       @connection.delete_by_id(
         ids.map { |id| Adapters::InstanceAdapter.index_id_for(class_name, id) }
       )
@@ -54,7 +54,7 @@ module Sunspot
     #
     def remove_all(clazz = nil)
       if clazz
-        @connection.delete_by_query("type:#{escape(clazz.name)}")
+        @connection.delete_by_query("type:#{Util.escape(clazz.name)}")
       else
         @connection.delete_by_query("*:*")
       end
