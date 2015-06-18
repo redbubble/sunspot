@@ -127,6 +127,57 @@ describe 'scoped_search' do
   test_field_type 'Trie Time', :created_at, :created_at, Photo, *(['1970-01-01 00:00:00 UTC', '1983-07-08 04:00:00 UTC', '1983-07-08 02:00:00 -0500',
                                                                    '2005-11-05 10:00:00 UTC', Time.now.to_s].map { |t| Time.parse(t) })
 
+  describe 'Date range field type' do
+    let(:january) { Date.new(2015,1,1)..Date.new(2015,1,31) }
+    let(:february) { Date.new(2015,2,1)..Date.new(2015,2,28) }
+    let(:date_ranges) do
+      {
+        'December and January' => Date.new(2014,12,25)..Date.new(2015,1,10),
+        'January only' => Date.new(2015,1,5)..Date.new(2015,1,20),
+        'January and February' => Date.new(2015,1,25)..Date.new(2015,2,10),
+        'February only' => Date.new(2015,2,5)..Date.new(2015,2,20),
+        'December to February' => Date.new(2014,12,25)..Date.new(2015,2,10),
+        'January to March' => Date.new(2015,1,25)..Date.new(2015,3,10),
+        'December to March' => Date.new(2014,12,25)..Date.new(2015,3,20)
+      }
+    end
+
+    before :all do
+      Sunspot.remove_all
+      @posts = [Post.new(featured_for: january), Post.new(featured_for: february), Post.new]
+      Sunspot.index!(@posts)
+    end
+
+    it 'should filter by Contains' do
+      featured_for_posts(:containing, Date.new(2015,1,15) ).should == [@posts[0]]
+      featured_for_posts(:containing, 'December and January').should be_empty
+      featured_for_posts(:containing, 'January only').should == [@posts[0]]
+      featured_for_posts(:containing, 'January only', negated = true).should == @posts[1..-1]
+    end
+
+    it 'should filter by Intersects' do
+      featured_for_posts(:intersecting, Date.new(2015,1,15) ).should == [@posts[0]]
+      featured_for_posts(:intersecting, 'January only').should == [@posts[0]]
+      featured_for_posts(:intersecting, 'January and February').should == @posts[0..1]
+      featured_for_posts(:intersecting, 'January and February', negated = true).should == [@posts[2]]
+      featured_for_posts(:intersecting, 'February only').should == [@posts[1]]
+      featured_for_posts(:intersecting, 'February only', negated = true).should == [@posts[0], @posts[2]]
+    end
+
+    it 'should filter by Within' do
+      featured_for_posts(:within, Date.new(2015,1,15) ).should be_empty
+      (date_ranges.keys - date_ranges.keys.grep(/ to /)).each do |key|
+        featured_for_posts(:within, key).should be_empty
+      end
+      featured_for_posts(:within, 'December to February').should == [@posts[0]]
+      featured_for_posts(:within, 'December to February', negated = true).should == @posts[1..-1]
+      featured_for_posts(:within, 'January to March').should == [@posts[1]]
+      featured_for_posts(:within, 'January to March', negated = true).should == [@posts[0], @posts[2]]
+      featured_for_posts(:within, 'December to March').should == @posts[0..1]
+      featured_for_posts(:within, 'December to March', negated = true).should == [@posts[2]]
+    end
+  end
+
   describe 'Boolean field type' do
     before :all do
       Sunspot.remove_all
@@ -266,6 +317,44 @@ describe 'scoped_search' do
       end.results.should == posts[0..1]
     end
 
+    it 'should return results, ignoring any restriction in a disjunction that has been passed an empty array' do
+      posts = (1..3).map { |i| Post.new(:blog_id => i)}
+      Sunspot.index!(posts)
+      Sunspot.search(Post) do
+        with(:blog_id, [])
+      end.results.should == posts
+    end
+
+    it 'should return results, ignoring any restriction in a negative disjunction that has been passed an empty array' do
+      posts = (1..3).map { |i| Post.new(:blog_id => i)}
+      Sunspot.index!(posts)
+      Sunspot.search(Post) do
+        without(:blog_id, [])
+      end.results.should == posts
+    end 
+
+    it 'should return results, ignoring any restriction in a conjunction that has been passed an empty array' do
+      posts = (1..3).map { |i| Post.new(:blog_id => i)}
+      Sunspot.index!(posts)
+      Sunspot.search(Post) do
+        all_of do
+          with(:blog_id, 1)
+          with(:blog_id, [])
+        end
+      end.results.should == posts[0..0]
+    end
+
+    it 'should return results, ignoring any restriction in a negative conjunction that has been passed an empty array' do
+      posts = (1..3).map { |i| Post.new(:blog_id => i)}
+      Sunspot.index!(posts)
+      Sunspot.search(Post) do
+        all_of do
+          with(:blog_id, 1)
+          without(:blog_id, [])
+        end
+      end.results.should == posts[0..0]
+    end
+
     it 'should return results that match a nested conjunction in a disjunction' do
       posts = [
         Post.new(:title => 'No', :blog_id => 1),
@@ -379,7 +468,7 @@ describe 'scoped_search' do
 
     it 'should order randomly (run this test again if it fails)' do
       result_sets = Array.new(2) do
-        Sunspot.search(Post) { order_by_random }.results.map do |result|
+        Sunspot.search(Post) { order_by(:random) }.results.map do |result|
           result.id
         end
       end
@@ -417,6 +506,36 @@ describe 'scoped_search' do
         end.results.map { |result| result.id }
         next_results.should == @first_results
       end
+    end
+  end
+
+  describe 'ordering by function' do
+    before :all do
+      Sunspot.remove_all
+      @p1 = Post.new(:blog_id => 1, :category_ids => [3])
+      @p2 = Post.new(:blog_id => 2, :category_ids => [1])
+      Sunspot.index([@p1,@p2])
+      Sunspot.commit
+    end
+    it 'should order by sum' do
+      # 1+3 > 2+1
+      search = Sunspot.search(Post) {order_by_function :sum, :blog_id, :primary_category_id, :desc}
+      search.results.first.should == @p1
+    end
+    it 'should order by product and sum' do
+      # 1 * (1+3) < 2 * (2+1)
+      search = Sunspot.search(Post) { order_by_function :product, :blog_id, [:sum,:blog_id,:primary_category_id], :desc}
+      search.results.first.should == @p2
+    end
+    it 'should accept string literals' do
+      # (1 * -2) > (2 * -2)
+      search = Sunspot.search(Post) {order_by_function :product, :blog_id, '-2', :desc}
+      search.results.first.should == @p1
+    end
+    it 'should accept non-string literals' do
+      # (1 * -2) > (2 * -2)
+      search = Sunspot.search(Post) {order_by_function :product, :blog_id, -2, :desc}
+      search.results.first.should == @p1
     end
   end
 end

@@ -7,7 +7,7 @@ describe "PaginatedCollection" do
 
   describe "#send" do
     it 'should allow send' do
-      expect { subject.send(:current_page) }.not_to raise_error(NoMethodError)
+      expect { subject.send(:current_page) }.to_not raise_error
     end
   end
 
@@ -23,6 +23,7 @@ describe "PaginatedCollection" do
     it { subject.current_page.should eql(1) }
     it { subject.per_page.should eql(10) }
     it { subject.previous_page.should be_nil }
+    it { subject.prev_page.should be_nil }
     it { subject.next_page.should eql(2) }
     it { subject.out_of_bounds?.should_not be_true }
     it { subject.offset.should eql(0) }
